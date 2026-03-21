@@ -20,6 +20,9 @@ defmodule Mix.Tasks.Six.Html do
   def run(args) do
     {opts, test_args} = split_args(args)
 
+    # Save original formatters so we can restore after the run
+    original = Application.get_env(:six, :formatters)
+
     # Ensure HTML formatter is included
     current =
       Application.get_env(:six, :formatters, [Six.Formatters.Terminal, Six.Formatters.Agent])
@@ -33,6 +36,12 @@ defmodule Mix.Tasks.Six.Html do
     end
 
     Mix.Tasks.Six.run(test_args)
+
+    # Restore original formatters to avoid polluting the application env
+    case original do
+      nil -> Application.delete_env(:six, :formatters)
+      val -> Application.put_env(:six, :formatters, val)
+    end
 
     if opts[:open] do
       output_dir = opts[:output_dir] || Application.get_env(:six, :output_dir, ".six")
