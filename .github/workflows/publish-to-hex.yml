@@ -1,0 +1,41 @@
+name: Publish to Hex
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  hex:
+    name: Publish to Hex
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.1
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Setup Elixir
+        uses: ./.github/actions/setup-elixir
+
+      - name: Compile
+        uses: ./.github/actions/compile
+
+      - name: Verify tag matches mix.exs version
+        run: |
+          expected_ref="v$(mix run -e 'IO.write(Mix.Project.config()[:version])')"
+          test "${{ github.ref_name }}" = "$expected_ref"
+
+      - name: Build docs
+        run: mix docs
+
+      - name: Publish package and docs to Hex
+        env:
+          HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
+        run: mix hex.publish --yes
