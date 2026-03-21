@@ -1,0 +1,10 @@
+name: Setup Elixir
+description: Sets up the Elixir environment for the project.
+runs:
+  using: composite
+  steps:
+    - name: Elixir
+      uses: erlef/setup-beam@v1.18.2
+      with:
+        version-file: .tool-versions
+        version-type: strict

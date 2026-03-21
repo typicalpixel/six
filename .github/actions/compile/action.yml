@@ -1,0 +1,12 @@
+name: Compile
+description: Compiles the project and fails on warnings.
+runs:
+  using: composite
+  steps:
+    - name: Install Dependencies
+      shell: bash
+      run: mix deps.get
+
+    - name: Compile
+      shell: bash
+      run: mix compile --warnings-as-errors
