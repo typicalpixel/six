@@ -61,7 +61,7 @@ defmodule Six.MixProject do
         "guides/threshold-vs-minimum-coverage.md",
         "guides/ai-integration.md",
         "guides/github-actions.md",
-        "guides/custom-formatters.md",
+        "guides/custom-formatters.md"
       ],
       groups_for_extras: [
         Guides: ~r/guides\/.*/
