@@ -1,0 +1,64 @@
+name: Continuous Integration
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MIX_ENV: test
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.1
+
+      - name: Setup Elixir
+        uses: ./.github/actions/setup-elixir
+
+      - name: Compile
+        uses: ./.github/actions/compile
+
+      - name: Run test suite with coverage
+        run: mix test --cover
+
+  formatter:
+    name: Formatter
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.1
+
+      - name: Setup Elixir
+        uses: ./.github/actions/setup-elixir
+
+      - name: Compile
+        uses: ./.github/actions/compile
+
+      - name: Check formatting
+        run: |
+          mix format --check-formatted
+
+  docs:
+    name: Build Docs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.1
+
+      - name: Setup Elixir
+        uses: ./.github/actions/setup-elixir
+
+      - name: Compile
+        uses: ./.github/actions/compile
+
+      - name: Build docs
+        run: mix docs --warnings-as-errors
