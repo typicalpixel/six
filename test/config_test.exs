@@ -4,6 +4,19 @@ defmodule Six.ConfigTest do
   alias Six.Config
 
   test "read returns defaults when no config is set" do
+    keys =
+      ~w(ignore_patterns default_patterns minimum_coverage output_dir skip_files formatters detail filter threshold)a
+
+    saved = for k <- keys, do: {k, Application.get_env(:six, k)}
+    Enum.each(keys, &Application.delete_env(:six, &1))
+
+    on_exit(fn ->
+      Enum.each(saved, fn
+        {k, nil} -> Application.delete_env(:six, k)
+        {k, v} -> Application.put_env(:six, k, v)
+      end)
+    end)
+
     config = Config.read()
 
     assert config.ignore_patterns == []
