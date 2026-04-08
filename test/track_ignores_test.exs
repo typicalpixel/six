@@ -243,6 +243,255 @@ defmodule Six.TrackIgnoresTest do
     end
   end
 
+  describe "stability under refactoring" do
+    defp render_source(source) do
+      TrackIgnores.render(summary([file_stats("lib/foo.ex", source)]), config())
+    end
+
+    test "@six :ignore function reorder produces no diff" do
+      original = """
+      defmodule Foo do
+        @six :ignore
+        def alpha, do: :ok
+
+        def beta, do: :ok
+
+        @six :ignore
+        def gamma, do: :ok
+      end
+      """
+
+      reordered = """
+      defmodule Foo do
+        def beta, do: :ok
+
+        @six :ignore
+        def gamma, do: :ok
+
+        @six :ignore
+        def alpha, do: :ok
+      end
+      """
+
+      assert render_source(original) == render_source(reordered)
+    end
+
+    test "adding a new function above an ignored one does not change the existing entry" do
+      before = """
+      defmodule Foo do
+        @six :ignore
+        def existing, do: :ok
+      end
+      """
+
+      after_ = """
+      defmodule Foo do
+        def newly_added do
+          :hello
+        end
+
+        @six :ignore
+        def existing, do: :ok
+      end
+      """
+
+      assert render_source(before) =~ "lib/foo.ex existing"
+      assert render_source(after_) =~ "lib/foo.ex existing"
+      # Both renders contain the same `existing` line — only difference is no new entries
+      before_lines = MapSet.new(String.split(render_source(before), "\n"))
+      after_lines = MapSet.new(String.split(render_source(after_), "\n"))
+      assert MapSet.subset?(before_lines, after_lines)
+    end
+
+    test "renaming an @six :ignore function changes its entry" do
+      original = """
+      defmodule Foo do
+        @six :ignore
+        def old_name, do: :ok
+      end
+      """
+
+      renamed = """
+      defmodule Foo do
+        @six :ignore
+        def new_name, do: :ok
+      end
+      """
+
+      assert render_source(original) =~ "lib/foo.ex old_name"
+      refute render_source(renamed) =~ "lib/foo.ex old_name"
+      assert render_source(renamed) =~ "lib/foo.ex new_name"
+    end
+
+    test "moving an entire function with a comment directive inside it does not change the hash" do
+      original = """
+      defmodule Foo do
+        def first, do: :ok
+
+        def with_ignore do
+          # six:ignore:start
+          a = 1
+          b = 2
+          # six:ignore:stop
+          a + b
+        end
+      end
+      """
+
+      moved = """
+      defmodule Foo do
+        def with_ignore do
+          # six:ignore:start
+          a = 1
+          b = 2
+          # six:ignore:stop
+          a + b
+        end
+
+        def first, do: :ok
+      end
+      """
+
+      assert render_source(original) == render_source(moved)
+    end
+
+    test "adding a line inside an ignored block changes the hash" do
+      original = """
+      defmodule Foo do
+        def bar do
+          # six:ignore:start
+          a = 1
+          # six:ignore:stop
+        end
+      end
+      """
+
+      added = """
+      defmodule Foo do
+        def bar do
+          # six:ignore:start
+          a = 1
+          b = 2
+          # six:ignore:stop
+        end
+      end
+      """
+
+      [hash1] = Regex.run(~r/[0-9a-f]{8}/, render_source(original))
+      [hash2] = Regex.run(~r/[0-9a-f]{8}/, render_source(added))
+
+      refute hash1 == hash2
+    end
+
+    test "removing a line from an ignored block changes the hash" do
+      original = """
+      defmodule Foo do
+        def bar do
+          # six:ignore:start
+          a = 1
+          b = 2
+          c = 3
+          # six:ignore:stop
+        end
+      end
+      """
+
+      shrunk = """
+      defmodule Foo do
+        def bar do
+          # six:ignore:start
+          a = 1
+          c = 3
+          # six:ignore:stop
+        end
+      end
+      """
+
+      [hash1] = Regex.run(~r/[0-9a-f]{8}/, render_source(original))
+      [hash2] = Regex.run(~r/[0-9a-f]{8}/, render_source(shrunk))
+
+      refute hash1 == hash2
+    end
+
+    test "renaming the enclosing function of a comment directive changes its entry" do
+      original = """
+      defmodule Foo do
+        def old_caller do
+          # six:ignore:next
+          dangerous_call()
+        end
+      end
+      """
+
+      renamed = """
+      defmodule Foo do
+        def new_caller do
+          # six:ignore:next
+          dangerous_call()
+        end
+      end
+      """
+
+      assert render_source(original) =~ ~r|lib/foo\.ex old_caller [0-9a-f]{8}|
+      assert render_source(renamed) =~ ~r|lib/foo\.ex new_caller [0-9a-f]{8}|
+
+      # The hash itself should be the same — only the function name changed
+      [hash1] = Regex.run(~r/[0-9a-f]{8}/, render_source(original))
+      [hash2] = Regex.run(~r/[0-9a-f]{8}/, render_source(renamed))
+      assert hash1 == hash2
+    end
+
+    test "indentation changes inside an ignored block change the hash" do
+      original = """
+      defmodule Foo do
+        def bar do
+          # six:ignore:start
+          a = 1
+          # six:ignore:stop
+        end
+      end
+      """
+
+      reindented = """
+      defmodule Foo do
+        def bar do
+            # six:ignore:start
+                a = 1
+            # six:ignore:stop
+        end
+      end
+      """
+
+      [hash1] = Regex.run(~r/[0-9a-f]{8}/, render_source(original))
+      [hash2] = Regex.run(~r/[0-9a-f]{8}/, render_source(reindented))
+
+      # Indentation matters — refactor that touches indentation IS a real change worth flagging
+      refute hash1 == hash2
+    end
+
+    test "trailing whitespace on ignored lines does not change the hash" do
+      original = """
+      defmodule Foo do
+        def bar do
+          # six:ignore:start
+          a = 1
+          # six:ignore:stop
+        end
+      end
+      """
+
+      with_trailing =
+        original
+        |> String.replace("a = 1\n", "a = 1   \n")
+        |> String.replace("# six:ignore:start\n", "# six:ignore:start  \n")
+
+      [hash1] = Regex.run(~r/[0-9a-f]{8}/, render_source(original))
+      [hash2] = Regex.run(~r/[0-9a-f]{8}/, render_source(with_trailing))
+
+      assert hash1 == hash2
+    end
+  end
+
   describe "write/2" do
     @tag :tmp_dir
     test "writes the .sixignore file at the project root", %{tmp_dir: tmp_dir} do
