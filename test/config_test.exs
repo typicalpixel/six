@@ -5,7 +5,7 @@ defmodule Six.ConfigTest do
 
   test "read returns defaults when no config is set" do
     keys =
-      ~w(ignore_patterns default_patterns minimum_coverage output_dir skip_files formatters detail filter threshold)a
+      ~w(ignore_patterns default_patterns minimum_coverage output_dir skip_files formatters detail filter threshold track_ignores)a
 
     saved = for k <- keys, do: {k, Application.get_env(:six, k)}
     Enum.each(keys, &Application.delete_env(:six, &1))
@@ -26,6 +26,13 @@ defmodule Six.ConfigTest do
     assert config.skip_files == []
     assert config.formatters == [Six.Formatters.Terminal, Six.Formatters.Agent]
     assert config.threshold == 90
+    assert config.track_ignores == false
+  end
+
+  test "merge_with_opts enables track_ignores" do
+    config = Config.read()
+    updated = Config.merge_with_opts(config, track_ignores: true)
+    assert updated.track_ignores == true
   end
 
   test "merge_with_opts overrides fields" do
