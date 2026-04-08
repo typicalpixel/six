@@ -9,7 +9,8 @@ defmodule Six.Config do
             formatters: [Six.Formatters.Terminal, Six.Formatters.Agent],
             detail: false,
             filter: nil,
-            threshold: 90
+            threshold: 90,
+            track_ignores: false
 
   @doc """
   Reads configuration from application env and returns a config struct.
@@ -24,7 +25,8 @@ defmodule Six.Config do
       formatters: get(:formatters, [Six.Formatters.Terminal, Six.Formatters.Agent]),
       detail: get(:detail, false),
       filter: get(:filter, nil),
-      threshold: get(:threshold, 90)
+      threshold: get(:threshold, 90),
+      track_ignores: get(:track_ignores, false)
     }
   end
 
@@ -39,6 +41,7 @@ defmodule Six.Config do
       {:detail, val}, acc -> %{acc | detail: val}
       {:filter, val}, acc -> %{acc | filter: val}
       {:formatters, val}, acc -> %{acc | formatters: val}
+      {:track_ignores, val}, acc -> %{acc | track_ignores: val}
       {:skip, val}, acc -> %{acc | skip_files: acc.skip_files ++ [val]}
       {:skip_files, vals}, acc when is_list(vals) -> %{acc | skip_files: acc.skip_files ++ vals}
       {:summary, summary_opts}, acc -> merge_summary_opts(acc, summary_opts)

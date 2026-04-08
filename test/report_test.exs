@@ -20,7 +20,8 @@ defmodule Six.ReportTest do
     :formatters,
     :detail,
     :filter,
-    :threshold
+    :threshold,
+    :track_ignores
   ]
 
   setup do
@@ -28,6 +29,8 @@ defmodule Six.ReportTest do
       Enum.map(@config_keys, fn key ->
         {key, Application.get_env(:six, key, :__missing__)}
       end)
+
+    Enum.each(@config_keys, &Application.delete_env(:six, &1))
 
     on_exit(fn ->
       Enum.each(@config_keys, fn key ->

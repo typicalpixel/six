@@ -11,6 +11,9 @@ defmodule Mix.Tasks.Six do
     * `--minimum-coverage N` - Fail if total coverage drops below N
     * `--output-dir DIR` - Output directory (default: .six/)
     * `--skip FILE` - Additional file pattern to skip (repeatable)
+    * `--track-ignores` - Write a `.sixignore` file at the project root
+      tracking all explicit coverage exclusions. Commit this file to
+      review ignore changes in PRs.
     * `--import-cover DIR` - Import .coverdata files from DIR and generate
       a report without running tests. Used to merge coverage from
       partitioned CI runs.
@@ -29,10 +32,31 @@ defmodule Mix.Tasks.Six do
 
     Mix.env(:test)
 
-    if import_dir = opts[:import_cover] do
-      import_and_report(import_dir, opts)
+    with_track_ignores(opts, fn ->
+      if import_dir = opts[:import_cover] do
+        import_and_report(import_dir, opts)
+      else
+        run_tests(opts, test_args)
+      end
+    end)
+  end
+
+  @six :ignore
+  defp with_track_ignores(opts, fun) do
+    if Keyword.get(opts, :track_ignores) do
+      original = Application.get_env(:six, :track_ignores)
+      Application.put_env(:six, :track_ignores, true)
+
+      try do
+        fun.()
+      after
+        case original do
+          nil -> Application.delete_env(:six, :track_ignores)
+          val -> Application.put_env(:six, :track_ignores, val)
+        end
+      end
     else
-      run_tests(opts, test_args)
+      fun.()
     end
   end
 
@@ -89,6 +113,7 @@ defmodule Mix.Tasks.Six do
           minimum_coverage: :float,
           output_dir: :string,
           skip: :keep,
+          track_ignores: :boolean,
           import_cover: :string
         ],
         aliases: [t: :threshold, o: :output_dir]

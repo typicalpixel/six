@@ -19,6 +19,8 @@ defmodule Six.Report do
       formatter.format(summary, formatter_opts)
     end)
 
+    if config.track_ignores, do: Six.TrackIgnores.write(summary, config)
+
     enforce_minimum_coverage!(summary, config.minimum_coverage)
 
     summary
