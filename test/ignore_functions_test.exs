@@ -239,6 +239,28 @@ defmodule Six.Ignore.FunctionsTest do
     assert function.ignored? == false
   end
 
+  test "functions records atom module names" do
+    source = """
+    defmodule :atom_named do
+      def visible, do: :ok
+    end
+    """
+
+    [function] = Functions.functions(source)
+    assert function.module == :atom_named
+  end
+
+  test "functions records nil for dynamic module names" do
+    source = """
+    defmodule unquote(:DynamicName) do
+      def visible, do: :ok
+    end
+    """
+
+    [function] = Functions.functions(source)
+    assert function.module == nil
+  end
+
   test "find_function_end scans for matching end" do
     lines = [
       "  def foo do",

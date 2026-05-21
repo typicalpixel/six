@@ -1,8 +1,6 @@
 # Six
 
-<picture>
-  <img src="./assets/six.png" alt="Six">
-</picture>
+![Six](https://raw.githubusercontent.com/typicalpixel/six/main/assets/six.png)
 
 ## Watch your Coverage
 

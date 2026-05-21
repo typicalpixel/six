@@ -10,7 +10,8 @@ defmodule Six.Config do
             detail: false,
             filter: nil,
             threshold: 90,
-            track_ignores: false
+            track_ignores: false,
+            heatmap: true
 
   @doc """
   Reads configuration from application env and returns a config struct.
@@ -26,7 +27,8 @@ defmodule Six.Config do
       detail: get(:detail, false),
       filter: get(:filter, nil),
       threshold: get(:threshold, 90),
-      track_ignores: get(:track_ignores, false)
+      track_ignores: get(:track_ignores, false),
+      heatmap: get(:heatmap, true)
     }
   end
 
@@ -42,6 +44,7 @@ defmodule Six.Config do
       {:filter, val}, acc -> %{acc | filter: val}
       {:formatters, val}, acc -> %{acc | formatters: val}
       {:track_ignores, val}, acc -> %{acc | track_ignores: val}
+      {:heatmap, val}, acc -> %{acc | heatmap: val}
       {:skip, val}, acc -> %{acc | skip_files: acc.skip_files ++ [val]}
       {:skip_files, vals}, acc when is_list(vals) -> %{acc | skip_files: acc.skip_files ++ vals}
       {:summary, summary_opts}, acc -> merge_summary_opts(acc, summary_opts)
