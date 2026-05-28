@@ -34,18 +34,27 @@ defmodule Six.Ignore.Functions do
 
   @doc """
   Returns function definitions in source order.
-  Each entry includes `:function`, `:start_line`, `:end_line`, and `:ignored?`.
+  Each entry includes `:module`, `:function`, `:arity`, `:start_line`, `:end_line`, and `:ignored?`.
   """
   def functions(source, attribute_name \\ :six) do
     source
     |> parse_functions(attribute_name)
     |> Enum.map(fn %{
+                     module: module,
                      function: function,
+                     arity: arity,
                      start_line: start_line,
                      end_line: end_line,
                      ignored?: ignored?
                    } ->
-      %{function: function, start_line: start_line, end_line: end_line, ignored?: ignored?}
+      %{
+        module: module,
+        function: function,
+        arity: arity,
+        start_line: start_line,
+        end_line: end_line,
+        ignored?: ignored?
+      }
     end)
   end
 
@@ -81,13 +90,17 @@ defmodule Six.Ignore.Functions do
   end
 
   defp parse_functions_via_ast(source, attribute_name) do
-    case Code.string_to_quoted(source, columns: true, token_metadata: true) do
+    # Suppress diagnostics (e.g. deprecation warnings) emitted while parsing
+    # user source for analysis — the compiler already surfaced them at build.
+    {parsed, _diagnostics} =
+      Code.with_diagnostics(fn ->
+        Code.string_to_quoted(source, columns: true, token_metadata: true)
+      end)
+
+    case parsed do
       {:ok, ast} ->
         source_lines = String.split(source, "\n")
-
-        ast
-        |> extract_body()
-        |> scan_expressions(attribute_name, source_lines, false, [])
+        scan_ast(ast, attribute_name, source_lines, nil, false, [])
 
       {:error, _} ->
         parse_functions_via_string(source, attribute_name)
@@ -107,43 +120,76 @@ defmodule Six.Ignore.Functions do
   @six :ignore
   defp extract_body(_), do: []
 
-  defp scan_expressions([], _attr_name, _source_lines, _ignore_next, acc), do: Enum.reverse(acc)
+  defp scan_ast(
+         {:defmodule, _, [name_ast, kwl]} = expr,
+         attr_name,
+         source_lines,
+         _module,
+         _ignore_next,
+         acc
+       )
+       when is_list(kwl) do
+    module = module_name(name_ast)
+    expr |> extract_body() |> scan_expressions(attr_name, source_lines, module, false, acc)
+  end
 
-  defp scan_expressions([expr | rest], attr_name, source_lines, ignore_next, acc) do
+  defp scan_ast({:__block__, _, body}, attr_name, source_lines, module, ignore_next, acc)
+       when is_list(body) do
+    scan_expressions(body, attr_name, source_lines, module, ignore_next, acc)
+  end
+
+  defp scan_ast(ast, attr_name, source_lines, module, ignore_next, acc) do
+    scan_expressions([ast], attr_name, source_lines, module, ignore_next, acc)
+  end
+
+  defp scan_expressions([], _attr_name, _source_lines, _module, _ignore_next, acc),
+    do: Enum.reverse(acc)
+
+  defp scan_expressions([expr | rest], attr_name, source_lines, module, ignore_next, acc) do
     case expr do
       {:@, _, [{^attr_name, _, [:ignore]}]} ->
-        scan_expressions(rest, attr_name, source_lines, true, acc)
+        scan_expressions(rest, attr_name, source_lines, module, true, acc)
 
       {def_type, meta, [head | _]} when def_type in @def_keywords ->
         entry = %{
+          module: module,
           function: format_function(def_type, head),
+          arity: head_arity(head),
           start_line: meta[:line],
           end_line: find_end_line(meta, source_lines, meta[:line]),
           ignored?: ignore_next
         }
 
-        scan_expressions(rest, attr_name, source_lines, false, [entry | acc])
+        scan_expressions(rest, attr_name, source_lines, module, false, [entry | acc])
 
-      {:defmodule, _, [_, kwl]} when is_list(kwl) ->
+      {:defmodule, _, [name_ast, kwl]} when is_list(kwl) ->
+        nested_module = module_name(name_ast)
         inner_body = extract_body(expr)
-        inner_entries = scan_expressions(inner_body, attr_name, source_lines, false, [])
+
+        inner_entries =
+          scan_expressions(inner_body, attr_name, source_lines, nested_module, false, [])
 
         scan_expressions(
           rest,
           attr_name,
           source_lines,
+          module,
           ignore_next,
           Enum.reverse(inner_entries) ++ acc
         )
 
       _ ->
         if is_module_attribute?(expr) and ignore_next do
-          scan_expressions(rest, attr_name, source_lines, true, acc)
+          scan_expressions(rest, attr_name, source_lines, module, true, acc)
         else
-          scan_expressions(rest, attr_name, source_lines, false, acc)
+          scan_expressions(rest, attr_name, source_lines, module, false, acc)
         end
     end
   end
+
+  defp module_name({:__aliases__, _, parts}), do: Module.concat(parts)
+  defp module_name(atom) when is_atom(atom), do: atom
+  defp module_name(_), do: nil
 
   defp is_module_attribute?({:@, _, _}), do: true
   defp is_module_attribute?(_), do: false
@@ -158,6 +204,11 @@ defmodule Six.Ignore.Functions do
   defp extract_function_name({:when, _, [call | _guards]}), do: extract_function_name(call)
   defp extract_function_name({name, _, _args}) when is_atom(name), do: Atom.to_string(name)
   defp extract_function_name(_), do: nil
+
+  defp head_arity({:when, _, [call | _guards]}), do: head_arity(call)
+  defp head_arity({name, _, args}) when is_atom(name) and is_list(args), do: length(args)
+  defp head_arity({name, _, nil}) when is_atom(name), do: 0
+  defp head_arity(_), do: nil
 
   @six :ignore
   defp find_end_line(meta, source_lines, start_line) do
@@ -248,7 +299,17 @@ defmodule Six.Ignore.Functions do
           end_line = find_function_end(lines, line_num)
 
           {false,
-           [%{function: function, start_line: line_num, end_line: end_line, ignored?: true} | acc]}
+           [
+             %{
+               module: nil,
+               function: function,
+               arity: nil,
+               start_line: line_num,
+               end_line: end_line,
+               ignored?: true
+             }
+             | acc
+           ]}
 
         ignore_next && Regex.match?(~r/^\s*@/, line) ->
           {true, acc}

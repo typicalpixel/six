@@ -124,7 +124,12 @@ defmodule Six.Ignore do
   defp directives_by_line(source) do
     source_lines = String.split(source, "\n")
 
-    case Code.string_to_quoted_with_comments(source, columns: true, token_metadata: true) do
+    {parsed, _diagnostics} =
+      Code.with_diagnostics(fn ->
+        Code.string_to_quoted_with_comments(source, columns: true, token_metadata: true)
+      end)
+
+    case parsed do
       {:ok, _ast, comments} ->
         comments
         |> Enum.reduce(%{}, fn %{line: line, text: text, column: column}, acc ->

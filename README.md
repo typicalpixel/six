@@ -1,8 +1,6 @@
 # Six
 
-<picture>
-  <img src="./assets/six.png" alt="Six">
-</picture>
+![Six](https://raw.githubusercontent.com/typicalpixel/six/main/assets/six.png)
 
 ## Watch your Coverage
 
@@ -31,7 +29,7 @@ def cli do
 end
 
 defp deps do
-  [{:six, "~> 0.2", only: :test}]
+  [{:six, "~> 0.3", only: :test}]
 end
 ```
 

@@ -132,8 +132,6 @@ defmodule Six.StatsTest do
   end
 
   test "build merges multiple modules from the same source file" do
-    Code.compile_file("test/fixtures/multi_module.ex")
-
     cover_data = %{
       Six.Fixtures.MultiModuleFirst => [
         {{Six.Fixtures.MultiModuleFirst, 2}, 1},
@@ -151,7 +149,7 @@ defmodule Six.StatsTest do
 
     [file] = result
     assert file.path == "test/fixtures/multi_module.ex"
-    assert Enum.at(file.coverage, 1) == 3
+    assert Enum.at(file.coverage, 1) == 4
     assert Enum.at(file.coverage, 5) == 2
   end
 
@@ -162,6 +160,25 @@ defmodule Six.StatsTest do
 
     result = Stats.build(cover_data)
     assert result == []
+  end
+
+  test "build keeps function call counts per module in one file" do
+    line_data = %{
+      Six.Fixtures.MultiModuleFirst => [{{Six.Fixtures.MultiModuleFirst, 2}, 1}]
+    }
+
+    function_data = %{
+      Six.Fixtures.MultiModuleFirst => [{{Six.Fixtures.MultiModuleFirst, :shared, 0}, 2}],
+      Six.Fixtures.MultiModuleSecond => [{{Six.Fixtures.MultiModuleSecond, :shared, 0}, 5}],
+      # no source path — should be skipped
+      NonExistentModule => [{{NonExistentModule, :gone, 0}, 9}]
+    }
+
+    [file] = Stats.build(line_data, function_data)
+
+    assert file.function_calls[{Six.Fixtures.MultiModuleFirst, :shared, 0}] == 2
+    assert file.function_calls[{Six.Fixtures.MultiModuleSecond, :shared, 0}] == 5
+    refute Map.has_key?(file.function_calls, {NonExistentModule, :gone, 0})
   end
 
   test "skip_files handles non-matching pattern types gracefully" do

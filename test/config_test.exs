@@ -58,6 +58,11 @@ defmodule Six.ConfigTest do
     assert updated.threshold == 75
   end
 
+  test "heatmap defaults on and can be overridden" do
+    assert Config.read().heatmap == true
+    assert Config.merge_with_opts(Config.read(), heatmap: false).heatmap == false
+  end
+
   test "merge_with_opts accumulates skip patterns" do
     config = Config.read()
     updated = Config.merge_with_opts(config, skip: "generated/")

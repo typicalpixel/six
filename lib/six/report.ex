@@ -12,7 +12,8 @@ defmodule Six.Report do
       output_dir: config.output_dir,
       detail: config.detail,
       filter: config.filter,
-      threshold: config.threshold
+      threshold: config.threshold,
+      heatmap: config.heatmap
     ]
 
     Enum.each(config.formatters, fn formatter ->
@@ -27,9 +28,11 @@ defmodule Six.Report do
   end
 
   defp build_summary(config) do
+    function_calls = Six.Cover.analyze_all_functions()
+
     file_stats =
       Six.Cover.analyze_all()
-      |> Six.Stats.build()
+      |> Six.Stats.build(function_calls)
       |> Six.Stats.skip_files(config.skip_files)
       |> Six.Filter.run(config)
       |> apply_comment_ignores()

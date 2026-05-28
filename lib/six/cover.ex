@@ -58,6 +58,37 @@ defmodule Six.Cover do
   end
 
   @doc """
+  Analyzes a single module for per-function call counts.
+  Returns `{:ok, [{{mod, fun, arity}, count}]}` or `{:error, reason}`.
+  """
+  def analyze_functions(module) do
+    case :cover.analyse(module, :calls, :function) do
+      {:ok, results} ->
+        {:ok, results}
+
+      # six:ignore:start
+      {:error, reason} ->
+        {:error, reason}
+        # six:ignore:stop
+    end
+  end
+
+  @doc """
+  Analyzes per-function call counts for all cover-compiled modules.
+  Returns a map of module => [{{mod, fun, arity}, count}].
+  """
+  def analyze_all_functions do
+    :cover.modules()
+    |> Enum.reduce(%{}, fn module, acc ->
+      case analyze_functions(module) do
+        {:ok, results} -> Map.put(acc, module, results)
+        # six:ignore:next
+        {:error, _} -> acc
+      end
+    end)
+  end
+
+  @doc """
   Resolves the source file path for a module, relative to the project root.
   Returns nil if the source file doesn't exist.
   """
