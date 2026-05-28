@@ -29,7 +29,7 @@ def cli do
 end
 
 defp deps do
-  [{:six, "~> 0.2", only: :test}]
+  [{:six, "~> 0.3", only: :test}]
 end
 ```
 
