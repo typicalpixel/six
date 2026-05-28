@@ -65,7 +65,7 @@ defmodule Six.Formatters.HTML do
     </table>
     </section>
     #{ignored_section(files)}
-    <div class="foot">six &middot; generated #{stamp()} &middot; single-file report &middot; works offline</div>
+    <div class="foot">six &middot; generated #{stamp()}</div>
     </main>
     <script type="application/json" id="six-index">#{index_json(files)}</script>
     <script type="application/json" id="six-total">#{total_json(summary)}</script>
@@ -778,8 +778,7 @@ defmodule Six.Formatters.HTML do
     .source-footer .legend.h5 > i { background: var(--line-5-bg); }
     .source-footer .ramp { margin-left: auto; }
 
-    .ignored { margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--border); opacity: 0.55; transition: opacity 0.12s; }
-    .ignored:hover { opacity: 1; }
+    .ignored { margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--border); }
     .ignored h2 { font-size: 11.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-3); margin: 0 0 2px; }
     .ignored .count { font-size: 11px; color: var(--fg-5); font-weight: 400; letter-spacing: 0; text-transform: none; }
     .ignored .note { margin: 0 0 8px; font-size: 12px; color: var(--fg-4); }
