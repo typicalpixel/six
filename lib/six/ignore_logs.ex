@@ -1,17 +1,5 @@
 defmodule Six.Ignore.Logs do
-  @moduledoc """
-  Excludes log statements from coverage based on their level.
-
-  `Logger` macros check the configured level *before* evaluating their message
-  and metadata. A test suite usually runs with `config :logger, level: :warning`,
-  so the arguments of an `info`/`debug` call are never executed — and `:cover`
-  reports those lines as missed even though no test could cover them. (`warning`
-  and `error` calls still emit, so they stay coverable.)
-
-  For every level listed in the `:ignore_log_levels` config, this stage nullifies
-  the coverage of matching `Logger` calls, spanning the whole statement —
-  including multi-line metadata — via the AST. It is a no-op by default.
-  """
+  @moduledoc false
 
   @valid_levels [:emergency, :alert, :critical, :error, :warning, :notice, :info, :debug]
 

@@ -25,6 +25,6 @@ If total coverage is `82.0%`:
 
 ## When to use each
 
-- **Local development**: use `threshold` when you want a visible target without blocking your workflow.
-- **CI**: use `minimum_coverage` when you want coverage regressions to fail the build.
-- **Both**: use `threshold` as the aspirational goal and `minimum_coverage` as the hard floor. This is usually the most practical setup.
+- For local development, use `threshold` when you want a visible target without blocking your workflow.
+- For CI, use `minimum_coverage` when you want coverage regressions to fail the build.
+- To get both, set `threshold` as the goal you are aiming for and `minimum_coverage` as the hard floor. This is usually the most practical setup.
