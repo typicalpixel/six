@@ -179,7 +179,7 @@ defmodule Six.Formatters.Agent do
 
   @doc false
   def detect_branch_context(source_lines, {start_line, _end_line}) do
-    # Check lines at and near the start of the missed range for branch context
+    # Scan lines near the start of the missed range for branch context
     range_start = max(start_line - 3, 0)
     context_lines = Enum.slice(source_lines, range_start, start_line - range_start + 1)
     missed_line = Enum.at(source_lines, start_line - 1, "")

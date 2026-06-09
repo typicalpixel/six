@@ -78,4 +78,4 @@ This runs `mix test --cover`, reads the report, and writes tests for uncovered b
 
 The report also includes an **Ignored** section listing every function and line range excluded from coverage, so you can audit whether ignores are still justified.
 
-For longer-running projects, enable `track_ignores: true` (or pass `--track-ignores`) to write a committable `.sixignore` manifest at the project root. Every new exclusion shows up as a line in your PR diff, making it impossible to add ignores without explicit review. See the README for details.
+For longer-running projects, enable `track_ignores: true` (or pass `--track-ignores`) to write a committable `.sixignore` manifest at the project root. Every new exclusion shows up as a line in your PR diff, so no ignore can land without explicit review. See the README for details.

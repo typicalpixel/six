@@ -1,6 +1,10 @@
 defmodule Six.Report do
   @moduledoc false
 
+  @doc """
+  Runs coverage analysis for the given options: builds the summary, emits each
+  configured formatter, and enforces the minimum coverage threshold.
+  """
   def run(opts \\ []) do
     config =
       Six.Config.read()
