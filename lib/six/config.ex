@@ -2,6 +2,7 @@ defmodule Six.Config do
   @moduledoc false
 
   defstruct ignore_patterns: [],
+            ignore_log_levels: [],
             default_patterns: true,
             minimum_coverage: 0,
             output_dir: ".six",
@@ -19,6 +20,7 @@ defmodule Six.Config do
   def read do
     %__MODULE__{
       ignore_patterns: get(:ignore_patterns, []),
+      ignore_log_levels: get(:ignore_log_levels, []),
       default_patterns: get(:default_patterns, true),
       minimum_coverage: get(:minimum_coverage, 0),
       output_dir: get(:output_dir, ".six"),
@@ -43,6 +45,7 @@ defmodule Six.Config do
       {:detail, val}, acc -> %{acc | detail: val}
       {:filter, val}, acc -> %{acc | filter: val}
       {:formatters, val}, acc -> %{acc | formatters: val}
+      {:ignore_log_levels, vals}, acc when is_list(vals) -> %{acc | ignore_log_levels: vals}
       {:track_ignores, val}, acc -> %{acc | track_ignores: val}
       {:heatmap, val}, acc -> %{acc | heatmap: val}
       {:skip, val}, acc -> %{acc | skip_files: acc.skip_files ++ [val]}

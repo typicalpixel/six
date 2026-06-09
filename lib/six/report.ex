@@ -35,6 +35,7 @@ defmodule Six.Report do
       |> Six.Stats.build(function_calls)
       |> Six.Stats.skip_files(config.skip_files)
       |> Six.Filter.run(config)
+      |> Six.Ignore.Logs.run(config)
       |> apply_comment_ignores()
       |> Six.Ignore.Functions.run()
 
