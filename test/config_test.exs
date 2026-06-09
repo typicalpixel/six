@@ -5,7 +5,7 @@ defmodule Six.ConfigTest do
 
   test "read returns defaults when no config is set" do
     keys =
-      ~w(ignore_patterns default_patterns minimum_coverage output_dir skip_files formatters detail filter threshold track_ignores)a
+      ~w(ignore_patterns ignore_log_levels default_patterns minimum_coverage output_dir skip_files formatters detail filter threshold track_ignores)a
 
     saved = for k <- keys, do: {k, Application.get_env(:six, k)}
     Enum.each(keys, &Application.delete_env(:six, &1))
@@ -20,6 +20,7 @@ defmodule Six.ConfigTest do
     config = Config.read()
 
     assert config.ignore_patterns == []
+    assert config.ignore_log_levels == []
     assert config.default_patterns == true
     assert config.minimum_coverage == 0
     assert config.output_dir == ".six"
@@ -85,6 +86,18 @@ defmodule Six.ConfigTest do
     config = Config.read()
     updated = Config.merge_with_opts(config, formatters: [Six.Formatters.Terminal])
     assert updated.formatters == [Six.Formatters.Terminal]
+  end
+
+  test "merge_with_opts sets ignore_log_levels" do
+    config = Config.read()
+    updated = Config.merge_with_opts(config, ignore_log_levels: [:info, :debug])
+    assert updated.ignore_log_levels == [:info, :debug]
+  end
+
+  test "merge_with_opts ignores ignore_log_levels when not a list" do
+    config = Config.read()
+    updated = Config.merge_with_opts(config, ignore_log_levels: :info)
+    assert updated.ignore_log_levels == []
   end
 
   test "merge_with_opts ignores unknown summary opts" do
