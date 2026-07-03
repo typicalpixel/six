@@ -6,6 +6,9 @@ defmodule Six.Cover do
   @doc """
   Compiles all .beam files in the given path for coverage tracking.
   Cannot be tested during a coverage run — calls :cover.compile_beam.
+
+  Passes the whole list in one call — :cover parallelizes list compiles
+  internally, where per-file calls serialize through its gen_server.
   """
   @six :ignore
   def compile_modules(compile_path) do
@@ -13,14 +16,16 @@ defmodule Six.Cover do
       compile_path
       |> Path.join("*.beam")
       |> Path.wildcard()
+      |> Enum.map(&String.to_charlist/1)
 
     modules =
-      Enum.flat_map(beams, fn beam ->
-        case :cover.compile_beam(String.to_charlist(beam)) do
-          {:ok, module} -> [module]
-          {:error, _reason} -> []
-        end
-      end)
+      case :cover.compile_beam(beams) do
+        results when is_list(results) ->
+          for {:ok, module} <- results, do: module
+
+        {:error, _reason} ->
+          []
+      end
 
     {:ok, modules}
   end
@@ -45,16 +50,21 @@ defmodule Six.Cover do
 
   @doc """
   Analyzes all cover-compiled modules. Returns a map of module => results.
+
+  Uses a single batched `:cover.analyse/2` call rather than one call per
+  module — the cover server is a lone gen_server, so per-module calls
+  serialize into thousands of round trips on large projects.
   """
   def analyze_all do
-    :cover.modules()
-    |> Enum.reduce(%{}, fn module, acc ->
-      case analyze(module) do
-        {:ok, results} -> Map.put(acc, module, results)
-        # six:ignore:next
-        {:error, _} -> acc
-      end
-    end)
+    case :cover.analyse(:calls, :line) do
+      {:result, results, _failed} ->
+        Enum.group_by(results, fn {{module, _line}, _count} -> module end)
+
+      # six:ignore:start
+      {:error, _reason} ->
+        %{}
+        # six:ignore:stop
+    end
   end
 
   @doc """
@@ -76,23 +86,29 @@ defmodule Six.Cover do
   @doc """
   Analyzes per-function call counts for all cover-compiled modules.
   Returns a map of module => [{{mod, fun, arity}, count}].
+
+  Batched for the same reason as `analyze_all/0`.
   """
   def analyze_all_functions do
-    :cover.modules()
-    |> Enum.reduce(%{}, fn module, acc ->
-      case analyze_functions(module) do
-        {:ok, results} -> Map.put(acc, module, results)
-        # six:ignore:next
-        {:error, _} -> acc
-      end
-    end)
+    case :cover.analyse(:calls, :function) do
+      {:result, results, _failed} ->
+        Enum.group_by(results, fn {{module, _fun, _arity}, _count} -> module end)
+
+      # six:ignore:start
+      {:error, _reason} ->
+        %{}
+        # six:ignore:stop
+    end
   end
 
   @doc """
   Resolves the source file path for a module, relative to the project root.
   Returns nil if the source file doesn't exist.
+
+  Pass `cwd` when resolving many modules to avoid a `File.cwd!` syscall per
+  module.
   """
-  def module_path(module) do
+  def module_path(module, cwd \\ nil) do
     case module.module_info(:compile)[:source] do
       # six:ignore:next
       nil ->
@@ -102,7 +118,7 @@ defmodule Six.Cover do
         path = to_string(source)
 
         if File.exists?(path) do
-          Path.relative_to(path, File.cwd!())
+          Path.relative_to(path, cwd || File.cwd!())
         else
           nil
         end

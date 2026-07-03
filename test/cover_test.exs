@@ -40,4 +40,30 @@ defmodule Six.CoverTest do
       assert is_list(results)
     end
   end
+
+  test "analyze_functions returns per-function results for a cover-compiled module" do
+    case Six.Cover.analyze_functions(Six) do
+      {:ok, results} ->
+        assert is_list(results)
+
+        assert Enum.all?(results, fn {{mod, fun, arity}, count} ->
+                 is_atom(mod) and is_atom(fun) and is_integer(arity) and is_integer(count)
+               end)
+
+      {:error, _} ->
+        # Not running under --cover, that's fine
+        :ok
+    end
+  end
+
+  test "analyze_all_functions returns a map keyed by module" do
+    result = Six.Cover.analyze_all_functions()
+    assert is_map(result)
+
+    if map_size(result) > 0 do
+      {module, results} = Enum.at(result, 0)
+      assert is_atom(module)
+      assert is_list(results)
+    end
+  end
 end

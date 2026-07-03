@@ -53,20 +53,20 @@ defmodule Six.TrackIgnores do
     |> Enum.map(&(&1 <> "\n"))
   end
 
-  defp entries_for_file(%{path: path, source: source}) do
-    function_ignore_entries(path, source) ++ comment_ignore_entries(path, source)
+  defp entries_for_file(%{path: path} = file) do
+    function_ignore_entries(path, file) ++ comment_ignore_entries(path, file)
   end
 
-  defp function_ignore_entries(path, source) do
-    source
-    |> Six.Ignore.Functions.ignored_functions()
+  defp function_ignore_entries(path, file) do
+    file
+    |> Six.Ignore.Functions.ignored_functions_for()
     |> Enum.map(fn %{function: function} ->
       "#{path} #{display_name(function)}"
     end)
   end
 
-  defp comment_ignore_entries(path, source) do
-    case Six.Ignore.ignored_ranges(source) do
+  defp comment_ignore_entries(path, %{source: source} = file) do
+    case Six.Ignore.ignored_ranges_for(file) do
       [] ->
         []
 
