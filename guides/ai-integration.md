@@ -2,23 +2,50 @@
 
 ## The agent report
 
-The `.six/coverage.md` report is the reason Six exists. Instead of just listing line numbers, it tells an agent what to do:
+The `.six/coverage.md` report is the reason Six exists. It is written for machines, not humans: plain `key: value` header lines, a fixed-schema summary line, and detail only where coverage is missing. Fully covered files are counted, not listed, so the report stays small no matter how large the project gets.
 
-    ### lib/my_app/accounts/auth.ex - 62.5% (15/24)
+    # Six Coverage Report
+
+    total: 87.2% (654/750 relevant lines)
+    threshold: 90.0% (fail)
+    generated: 2026-07-03T01:31:24Z
+
+    ## Uncovered files (worst first)
+
+    ### lib/my_app/accounts/auth.ex — 62.5% (15/24)
 
     **Missed lines:**
 
-    - **Lines 45-52** - `authenticate` - the `{:error, ...}` branch
+    - **Lines 45-52** — `authenticate` — the `{:error, ...}` branch
 
           {:error, :expired_token} ->
             Logger.warning("Token expired for user #{user_id}")
             {:error, :session_expired}
 
-    - **Lines 78-84** - `refresh_session` - entire function untested
+    - **Lines 78-84** — `refresh_session` — entire function untested
 
           def refresh_session(%Session{} = session) do
             ...
           end
+
+    ## Ignored
+
+    3 ignored ranges in 2 files. Grep these files for `six:ignore` and `@six :ignore` markers to audit whether each exclusion is still justified.
+
+    - lib/my_app/cover.ex (2)
+    - lib/my_app/release.ex (1)
+
+    ## Summary
+
+    files: 18, relevant: 750, covered: 654, missed: 96, fully_covered: 12, below_threshold: 3
+
+Instead of just listing line numbers, the uncovered sections tell an agent what to do: which function each missed range belongs to, which branch went unexercised, and the source itself.
+
+The header and summary fields are stable across runs — every field appears on every run, even when zero — so scripts and agents can grep them directly:
+
+    grep '^total:' .six/coverage.md
+    grep -q 'threshold:.*(fail)' .six/coverage.md && echo "below threshold"
+    grep -o 'missed: [0-9]*' .six/coverage.md
 
 Use it with Claude Code:
 
@@ -76,6 +103,6 @@ This runs `mix test --cover`, reads the report, and writes tests for uncovered b
 
     /project:six focus on the Auth module
 
-The report also includes an **Ignored** section listing every function and line range excluded from coverage, so you can audit whether ignores are still justified.
+The report also includes an **Ignored** section listing each file that contains coverage exclusions (with a count of ignored ranges), so an agent can grep those files for `six:ignore` and `@six :ignore` markers and audit whether the exclusions are still justified.
 
 For longer-running projects, enable `track_ignores: true` (or pass `--track-ignores`) to write a committable `.sixignore` manifest at the project root. Every new exclusion shows up as a line in your PR diff, so no ignore can land without explicit review. See the README for details.

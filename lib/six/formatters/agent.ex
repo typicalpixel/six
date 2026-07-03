@@ -25,7 +25,7 @@ defmodule Six.Formatters.Agent do
   @doc false
   def render(summary, opts) do
     threshold = Keyword.get(opts, :threshold, 90)
-    threshold_status = if summary.percentage >= threshold, do: "✅", else: "❌"
+    threshold_status = if summary.percentage >= threshold, do: "pass", else: "fail"
 
     {uncovered, covered} =
       Enum.split_with(summary.files, fn f -> f.missed > 0 end)
@@ -33,14 +33,13 @@ defmodule Six.Formatters.Agent do
     uncovered = Enum.sort_by(uncovered, & &1.percentage)
 
     [
-      "# Six Coverage Report\n",
-      "**Total: #{format_pct(summary.percentage)}** (#{summary.total_covered}/#{summary.total_relevant} relevant lines covered)\n",
-      "**Generated:** #{DateTime.utc_now() |> DateTime.to_iso8601()}\n",
-      "**Threshold:** #{format_pct(threshold)} #{threshold_status}\n",
+      "# Six Coverage Report\n\n",
+      "total: #{format_pct(summary.percentage)} (#{summary.total_covered}/#{summary.total_relevant} relevant lines)\n",
+      "threshold: #{format_pct(threshold)} (#{threshold_status})\n",
+      "generated: #{DateTime.utc_now() |> DateTime.to_iso8601()}\n",
       render_uncovered(uncovered),
-      render_covered(covered),
       render_ignored(summary.files),
-      render_summary(summary, threshold)
+      render_summary(summary, length(covered), threshold)
     ]
     |> IO.iodata_to_binary()
   end
@@ -84,63 +83,43 @@ defmodule Six.Formatters.Agent do
     ["\n## Uncovered files (worst first)\n" | sections]
   end
 
-  defp render_covered([]), do: "\n## Fully covered files\n\n_None_\n"
-
-  defp render_covered(files) do
-    lines = Enum.map(files, fn f -> "- #{f.path} — #{format_pct(f.percentage)}\n" end)
-    ["\n## Fully covered files\n\n" | lines]
-  end
-
   defp render_ignored(files) do
-    all_ignored =
-      Enum.flat_map(files, fn file ->
-        comment_ranges = Six.Ignore.ignored_ranges(file.source)
-        func_ranges = Six.Ignore.Functions.ignored_functions(file.source)
+    ignored_counts =
+      files
+      |> Enum.map(fn file ->
+        count =
+          length(Six.Ignore.ignored_ranges(file.source)) +
+            length(Six.Ignore.Functions.ignored_functions(file.source))
 
-        comment_entries =
-          Enum.map(comment_ranges, fn {start_line, end_line, type} ->
-            type_label = if type == :block, do: "six:ignore:start/stop", else: "six:ignore:next"
-
-            %{
-              path: file.path,
-              start_line: start_line,
-              end_line: end_line,
-              label: type_label,
-              function: nil
-            }
-          end)
-
-        func_entries =
-          Enum.map(func_ranges, fn %{start_line: s, end_line: e, function: func} ->
-            %{path: file.path, start_line: s, end_line: e, label: "@six :ignore", function: func}
-          end)
-
-        comment_entries ++ func_entries
+        {file.path, count}
       end)
+      |> Enum.filter(fn {_path, count} -> count > 0 end)
 
-    if all_ignored == [] do
+    if ignored_counts == [] do
       ""
     else
-      lines =
-        Enum.map(all_ignored, fn entry ->
-          range = "#{entry.path}:#{entry.start_line}-#{entry.end_line}"
-          func_part = if entry.function, do: " `#{entry.function}`", else: ""
-          "- #{range}#{func_part} — #{entry.label}\n"
-        end)
+      total = ignored_counts |> Enum.map(&elem(&1, 1)) |> Enum.sum()
 
-      ["\n## Ignored\n\n" | lines]
+      lines = Enum.map(ignored_counts, fn {path, count} -> "- #{path} (#{count})\n" end)
+
+      [
+        "\n## Ignored\n\n",
+        "#{total} ignored ranges in #{length(ignored_counts)} files. ",
+        "Grep these files for `six:ignore` and `@six :ignore` markers ",
+        "to audit whether each exclusion is still justified.\n\n"
+        | lines
+      ]
     end
   end
 
-  defp render_summary(summary, threshold) do
+  defp render_summary(summary, covered_count, threshold) do
     below = Enum.count(summary.files, fn f -> f.percentage < threshold end)
-    file_count = length(summary.files)
 
     [
       "\n## Summary\n\n",
-      "#{file_count} files, #{summary.total_relevant} relevant lines, ",
-      "#{summary.total_covered} covered, #{summary.total_missed} missed.\n",
-      if(below > 0, do: "#{below} files below threshold (#{format_pct(threshold)}).\n", else: "")
+      "files: #{length(summary.files)}, relevant: #{summary.total_relevant}, ",
+      "covered: #{summary.total_covered}, missed: #{summary.total_missed}, ",
+      "fully_covered: #{covered_count}, below_threshold: #{below}\n"
     ]
   end
 
