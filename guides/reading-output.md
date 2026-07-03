@@ -10,10 +10,9 @@ The summary table has five columns:
 | **RELEVANT** | Lines Six considers coverable (after filtering out boilerplate) |
 | **MISSED** | Relevant lines with zero executions |
 
-Rows are sorted worst-first so the files that need attention are at the top.
+Rows are sorted worst-first so the files that need attention are at the top. Only files with missed lines get a row; fully covered files are collapsed into a single `N files fully covered (not shown)` line above the total.
 
 ## Colors
 
 - Green means coverage is at or above the threshold (default 90%).
 - Red means coverage is below the threshold.
-- Yellow means the file has 0 relevant lines, so every executable line was filtered out (all `defmodule`, `use`, `alias`, `end`, etc.). There is nothing to cover, so Six cannot score it. This is normal for files that are purely structural, like a module that only defines a struct or delegates.

@@ -8,12 +8,19 @@ defmodule Six.Formatters.Terminal do
     filter = Keyword.get(opts, :filter, nil)
     threshold = Keyword.get(opts, :threshold, 90)
 
-    path_width = max_path_width(summary.files)
+    {uncovered, covered} = Enum.split_with(summary.files, fn f -> f.missed > 0 end)
+
+    path_width = max_path_width(uncovered)
 
     IO.puts("")
     print_separator()
-    print_header(path_width)
-    print_files(summary.files, threshold, path_width)
+
+    if uncovered != [] do
+      print_header(path_width)
+      print_files(uncovered, threshold, path_width)
+    end
+
+    print_covered_count(length(covered))
     print_total(summary.percentage, threshold)
     print_separator()
 
@@ -43,7 +50,7 @@ defmodule Six.Formatters.Terminal do
 
     Enum.each(sorted, fn file ->
       cov_str = format_percentage(file.percentage)
-      color = color_for(file.percentage, file.relevant, threshold)
+      color = color_for(file.percentage, threshold)
 
       line =
         pad_right(cov_str, 7) <>
@@ -63,8 +70,15 @@ defmodule Six.Formatters.Terminal do
     end)
   end
 
+  defp print_covered_count(0), do: :ok
+
+  defp print_covered_count(count) do
+    label = if count == 1, do: "file", else: "files"
+    IO.puts("#{count} #{label} fully covered (not shown)")
+  end
+
   defp print_total(percentage, threshold) do
-    color = color_for(percentage, 1, threshold)
+    color = color_for(percentage, threshold)
     line = "[TOTAL] #{format_percentage(percentage)}"
 
     # six:ignore:start
@@ -132,9 +146,8 @@ defmodule Six.Formatters.Terminal do
     :erlang.float_to_binary(pct, decimals: 1) <> "%"
   end
 
-  defp color_for(_pct, 0, _threshold), do: IO.ANSI.yellow()
-  defp color_for(pct, _, threshold) when pct >= threshold, do: IO.ANSI.green()
-  defp color_for(_, _, _), do: IO.ANSI.red()
+  defp color_for(pct, threshold) when pct >= threshold, do: IO.ANSI.green()
+  defp color_for(_, _), do: IO.ANSI.red()
 
   defp pad_right(str, width), do: String.pad_trailing(str, width)
   defp pad_left(str, width), do: String.pad_leading(str, width)
