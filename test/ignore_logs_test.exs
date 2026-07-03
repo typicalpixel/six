@@ -173,6 +173,21 @@ defmodule Six.Ignore.LogsTest do
     assert [^stats] = Logs.run([stats], %{ignore_log_levels: [:info]})
   end
 
+  test "leaves files without any Logger mention unchanged" do
+    source = """
+    defmodule Demo do
+      def go do
+        :ok
+      end
+    end\
+    """
+
+    coverage = [nil, 1, 1, nil, nil]
+    stats = file_stats(source, coverage)
+
+    assert [^stats] = Logs.run([stats], %{ignore_log_levels: [:info]})
+  end
+
   test "warns about unknown levels but still applies the valid ones" do
     source = """
     defmodule Demo do

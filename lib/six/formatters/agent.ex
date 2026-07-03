@@ -48,39 +48,43 @@ defmodule Six.Formatters.Agent do
 
   defp render_uncovered(files) do
     sections =
-      Enum.map(files, fn file ->
-        source_lines = String.split(file.source, "\n")
-        functions = Six.Ignore.Functions.functions(file.source)
-        groups = group_missed_lines(file.coverage)
+      files
+      |> Task.async_stream(&render_file_section/1, timeout: :infinity)
+      |> Enum.map(fn {:ok, section} -> section end)
 
-        group_sections =
-          Enum.map(groups, fn {start_line, end_line} ->
-            function_entry = function_for_line(functions, start_line)
-            func_name = display_name(function_entry)
-            branch_ctx = detect_branch_context(source_lines, {start_line, end_line})
-            snippet = extract_source_block(source_lines, start_line, end_line)
+    ["\n## Uncovered files (worst first)\n" | sections]
+  end
 
-            description = build_description(function_entry, branch_ctx, file.coverage)
+  defp render_file_section(file) do
+    source_lines = String.split(file.source, "\n")
+    functions = Six.Ignore.Functions.functions(file.source)
+    groups = group_missed_lines(file.coverage)
 
-            [
-              "- **Lines #{start_line}-#{end_line}**",
-              if(func_name, do: " — `#{func_name}`", else: ""),
-              if(description, do: " — #{description}", else: ""),
-              "\n",
-              "  ```elixir\n",
-              indent_snippet(snippet),
-              "  ```\n\n"
-            ]
-          end)
+    group_sections =
+      Enum.map(groups, fn {start_line, end_line} ->
+        function_entry = function_for_line(functions, start_line)
+        func_name = display_name(function_entry)
+        branch_ctx = detect_branch_context(source_lines, {start_line, end_line})
+        snippet = extract_source_block(source_lines, start_line, end_line)
+
+        description = build_description(function_entry, branch_ctx, file.coverage)
 
         [
-          "\n### #{file.path} — #{format_pct(file.percentage)} (#{file.covered}/#{file.relevant})\n\n",
-          "**Missed lines:**\n\n",
-          group_sections
+          "- **Lines #{start_line}-#{end_line}**",
+          if(func_name, do: " — `#{func_name}`", else: ""),
+          if(description, do: " — #{description}", else: ""),
+          "\n",
+          "  ```elixir\n",
+          indent_snippet(snippet),
+          "  ```\n\n"
         ]
       end)
 
-    ["\n## Uncovered files (worst first)\n" | sections]
+    [
+      "\n### #{file.path} — #{format_pct(file.percentage)} (#{file.covered}/#{file.relevant})\n\n",
+      "**Missed lines:**\n\n",
+      group_sections
+    ]
   end
 
   defp render_ignored(files) do
@@ -88,8 +92,8 @@ defmodule Six.Formatters.Agent do
       files
       |> Enum.map(fn file ->
         count =
-          length(Six.Ignore.ignored_ranges(file.source)) +
-            length(Six.Ignore.Functions.ignored_functions(file.source))
+          length(Six.Ignore.ignored_ranges_for(file)) +
+            length(Six.Ignore.Functions.ignored_functions_for(file))
 
         {file.path, count}
       end)

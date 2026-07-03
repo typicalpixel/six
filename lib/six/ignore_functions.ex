@@ -8,24 +8,46 @@ defmodule Six.Ignore.Functions do
 
   @doc """
   Nullifies coverage for functions tagged with @six :ignore.
+
+  Attaches the ignored functions to each file_stats under
+  `:ignored_functions` so formatters can reuse them without re-parsing.
+  Files whose source doesn't mention the attribute skip parsing entirely.
   """
   def run(file_stats_list, attribute_name \\ :six) do
-    Enum.map(file_stats_list, fn file_stats ->
-      process_file(file_stats, attribute_name)
+    file_stats_list
+    |> Task.async_stream(&process_file(&1, attribute_name), timeout: :infinity)
+    |> Enum.map(fn {:ok, file_stats} -> file_stats end)
+  end
+
+  @doc """
+  Returns the `@six :ignore` functions for a file_stats map, preferring the
+  `:ignored_functions` cache attached by `run/2` and falling back to
+  parsing the source.
+  """
+  def ignored_functions_for(file_stats, attribute_name \\ :six) do
+    Map.get_lazy(file_stats, :ignored_functions, fn ->
+      ignored_functions(file_stats.source, attribute_name)
     end)
   end
 
   defp process_file(%{source: source, coverage: coverage} = file_stats, attribute_name) do
-    ranges = find_ignored_ranges(source, attribute_name)
+    ignored = ignored_functions(source, attribute_name)
+    file_stats = Map.put(file_stats, :ignored_functions, ignored)
 
-    if ranges == [] do
+    if ignored == [] do
       file_stats
     else
+      ignored_lines =
+        for %{start_line: start_line, end_line: end_line} <- ignored,
+            line <- start_line..end_line,
+            into: MapSet.new(),
+            do: line
+
       new_coverage =
         coverage
         |> Enum.with_index(1)
         |> Enum.map(fn {cov, line_num} ->
-          if in_any_range?(line_num, ranges), do: nil, else: cov
+          if MapSet.member?(ignored_lines, line_num), do: nil, else: cov
         end)
 
       Six.Stats.recalculate(%{file_stats | coverage: new_coverage})
@@ -38,7 +60,7 @@ defmodule Six.Ignore.Functions do
   """
   def functions(source, attribute_name \\ :six) do
     source
-    |> parse_functions(attribute_name)
+    |> parse_functions_via_ast(attribute_name)
     |> Enum.map(fn %{
                      module: module,
                      function: function,
@@ -63,10 +85,16 @@ defmodule Six.Ignore.Functions do
   Returns [%{start_line, end_line, function}].
   """
   def ignored_functions(source, attribute_name \\ :six) do
-    source
-    |> functions(attribute_name)
-    |> Enum.filter(& &1.ignored?)
-    |> Enum.map(&Map.delete(&1, :ignored?))
+    # An AST parse costs ~100x a string scan, so skip files that can't
+    # possibly contain the attribute.
+    if String.contains?(source, "@#{attribute_name}") do
+      source
+      |> functions(attribute_name)
+      |> Enum.filter(& &1.ignored?)
+      |> Enum.map(&Map.delete(&1, :ignored?))
+    else
+      []
+    end
   end
 
   @doc """
@@ -79,14 +107,6 @@ defmodule Six.Ignore.Functions do
     |> Enum.map(fn %{start_line: start_line, end_line: end_line} ->
       {start_line, end_line}
     end)
-  end
-
-  defp parse_functions(source, attribute_name) do
-    unless String.contains?(source, "@#{attribute_name}") do
-      parse_functions_via_ast(source, attribute_name)
-    else
-      parse_functions_via_ast(source, attribute_name)
-    end
   end
 
   defp parse_functions_via_ast(source, attribute_name) do
@@ -273,12 +293,6 @@ defmodule Six.Ignore.Functions do
 
   defp count_closes(line) do
     length(Regex.scan(~r/\bend\b/, line))
-  end
-
-  defp in_any_range?(line_num, ranges) do
-    Enum.any?(ranges, fn {start_line, end_line} ->
-      line_num >= start_line and line_num <= end_line
-    end)
   end
 
   @six :ignore

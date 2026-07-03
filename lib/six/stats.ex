@@ -4,6 +4,12 @@ defmodule Six.Stats do
   @type line_coverage :: nil | non_neg_integer()
 
   @type file_stats :: %{
+          # Parse-once caches attached by Six.Ignore.run/1 and
+          # Six.Ignore.Functions.run/2 so formatters don't re-parse sources.
+          optional(:ignored_ranges) => [
+            {pos_integer(), pos_integer(), :block | :next}
+          ],
+          optional(:ignored_functions) => [map()],
           path: String.t(),
           source: String.t(),
           coverage: [line_coverage()],
@@ -38,11 +44,12 @@ defmodule Six.Stats do
   one file) are summed, not OR-ed — heat depends on the true total.
   """
   def build(line_data, function_data \\ %{}) do
-    function_maps = build_function_maps(function_data)
+    paths = module_paths(Map.keys(line_data) ++ Map.keys(function_data))
+    function_maps = build_function_maps(function_data, paths)
 
     line_data
     |> Enum.reduce(%{}, fn {module, results}, acc ->
-      case Six.Cover.module_path(module) do
+      case Map.get(paths, module) do
         nil ->
           acc
 
@@ -56,15 +63,27 @@ defmodule Six.Stats do
           end)
       end
     end)
-    |> Enum.map(fn {path, cover_map} ->
-      build_file_stats(path, cover_map, Map.get(function_maps, path, %{}))
-    end)
+    |> Task.async_stream(
+      fn {path, cover_map} ->
+        build_file_stats(path, cover_map, Map.get(function_maps, path, %{}))
+      end,
+      timeout: :infinity
+    )
+    |> Enum.map(fn {:ok, file_stats} -> file_stats end)
     |> Enum.sort_by(& &1.path)
   end
 
-  defp build_function_maps(function_data) do
+  defp module_paths(modules) do
+    cwd = File.cwd!()
+
+    modules
+    |> Enum.uniq()
+    |> Map.new(fn module -> {module, Six.Cover.module_path(module, cwd)} end)
+  end
+
+  defp build_function_maps(function_data, paths) do
     Enum.reduce(function_data, %{}, fn {module, results}, acc ->
-      case Six.Cover.module_path(module) do
+      case Map.get(paths, module) do
         nil ->
           acc
 

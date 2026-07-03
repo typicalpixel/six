@@ -20,13 +20,26 @@ defmodule Six.Ignore.Logs do
 
       ignore_levels ->
         ignore_set = MapSet.new(ignore_levels)
-        Enum.map(file_stats_list, &process_file(&1, ignore_set))
+
+        file_stats_list
+        |> Task.async_stream(&process_file(&1, ignore_set), timeout: :infinity)
+        |> Enum.map(fn {:ok, file_stats} -> file_stats end)
     end
   end
 
   def run(file_stats_list, _config), do: file_stats_list
 
-  defp process_file(%{source: source, coverage: coverage} = file_stats, ignore_set) do
+  # The AST matchers only recognize literal `Logger.` calls, so a source
+  # without "Logger" can't produce ranges — skip the parse.
+  defp process_file(%{source: source} = file_stats, ignore_set) do
+    if String.contains?(source, "Logger") do
+      process_logger_file(file_stats, ignore_set)
+    else
+      file_stats
+    end
+  end
+
+  defp process_logger_file(%{source: source, coverage: coverage} = file_stats, ignore_set) do
     case ignored_ranges(source, ignore_set) do
       [] ->
         file_stats

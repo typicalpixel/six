@@ -29,9 +29,9 @@ defmodule Six.Filter do
   def run(file_stats_list, config) do
     patterns = compile_patterns(config)
 
-    Enum.map(file_stats_list, fn file_stats ->
-      filter_file(file_stats, patterns)
-    end)
+    file_stats_list
+    |> Task.async_stream(&filter_file(&1, patterns), timeout: :infinity)
+    |> Enum.map(fn {:ok, file_stats} -> file_stats end)
   end
 
   @doc """

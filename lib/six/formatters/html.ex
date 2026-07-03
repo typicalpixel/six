@@ -31,6 +31,11 @@ defmodule Six.Formatters.HTML do
     heatmap? = Keyword.get(opts, :heatmap, true)
     files = Enum.sort_by(summary.files, & &1.percentage)
 
+    all_module_rows =
+      files
+      |> Task.async_stream(&module_rows(&1, heatmap?), timeout: :infinity)
+      |> Enum.map_join("\n", fn {:ok, rows} -> rows end)
+
     """
     <!DOCTYPE html>
     <html lang="en">
@@ -60,7 +65,7 @@ defmodule Six.Formatters.HTML do
         </tr>
       </thead>
       <tbody id="moduleBody">
-    #{Enum.map_join(files, "\n", &module_rows(&1, heatmap?))}
+    #{all_module_rows}
       </tbody>
     </table>
     </section>
@@ -330,17 +335,17 @@ defmodule Six.Formatters.HTML do
     entries =
       Enum.flat_map(files, fn file ->
         comment_entries =
-          Enum.map(Ignore.ignored_ranges(file.source), fn {s, e, type} ->
+          Enum.map(Ignore.ignored_ranges_for(file), fn {s, e, type} ->
             label = if type == :block, do: "six:ignore:start/stop", else: "six:ignore:next"
             {file.path, s, e, label, nil}
           end)
 
         func_entries =
-          Enum.map(Ignore.Functions.ignored_functions(file.source), fn %{
-                                                                         start_line: s,
-                                                                         end_line: e,
-                                                                         function: func
-                                                                       } ->
+          Enum.map(Ignore.Functions.ignored_functions_for(file), fn %{
+                                                                      start_line: s,
+                                                                      end_line: e,
+                                                                      function: func
+                                                                    } ->
             {file.path, s, e, "@six :ignore", func}
           end)
 
