@@ -49,7 +49,7 @@ defmodule Six.Formatters.AgentTest do
     content = Agent.render(sample_summary(), threshold: 90)
 
     assert content =~ "# Six Coverage Report"
-    assert content =~ "Total: 50.0%"
+    assert content =~ "total: 50.0%"
     assert content =~ "lib/foo.ex"
     assert content =~ "Uncovered files"
   end
@@ -66,14 +66,14 @@ defmodule Six.Formatters.AgentTest do
 
   test "render shows threshold status" do
     content = Agent.render(sample_summary(), threshold: 90)
-    assert content =~ "❌"
+    assert content =~ "threshold: 90.0% (fail)"
 
     passing_summary = %{sample_summary() | percentage: 95.0}
     content2 = Agent.render(passing_summary, threshold: 90)
-    assert content2 =~ "✅"
+    assert content2 =~ "threshold: 90.0% (pass)"
   end
 
-  test "render lists fully covered files" do
+  test "render counts fully covered files instead of listing them" do
     summary = %{
       files: [
         %{
@@ -95,9 +95,16 @@ defmodule Six.Formatters.AgentTest do
     }
 
     content = Agent.render(summary, threshold: 90)
-    assert content =~ "Fully covered files"
-    assert content =~ "lib/good.ex"
-    assert content =~ "100.0%"
+    assert content =~ "fully_covered: 1"
+    refute content =~ "Fully covered files"
+    refute content =~ "lib/good.ex"
+  end
+
+  test "render summary line always includes all fields" do
+    content = Agent.render(sample_summary(), threshold: 90)
+
+    assert content =~
+             "files: 1, relevant: 6, covered: 3, missed: 3, fully_covered: 0, below_threshold: 1"
   end
 
   test "render with no uncovered files" do
@@ -355,9 +362,9 @@ defmodule Six.Formatters.AgentTest do
 
     content = Agent.render(summary, threshold: 90)
     assert content =~ "## Ignored"
-    assert content =~ "@six :ignore"
-    assert content =~ "def excluded"
-    assert content =~ "six:ignore:next"
+    assert content =~ "2 ignored ranges in 1 files"
+    assert content =~ "- lib/foo.ex (2)"
+    refute content =~ "def excluded"
   end
 
   test "render omits ignored section when no ignores present" do

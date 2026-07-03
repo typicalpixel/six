@@ -29,7 +29,7 @@ def cli do
 end
 
 defp deps do
-  [{:six, "~> 0.3", only: :test}]
+  [{:six, "~> 0.4", only: :test}]
 end
 ```
 
@@ -58,7 +58,7 @@ mix six.html --open
 This produces two things:
 
 1. A terminal summary table (sorted worst-first)
-2. `.six/coverage.md` - a structured report an AI agent can read and act on
+2. `.six/coverage.md` - a structured, grep-able report an AI agent can read and act on. Plain `key: value` header lines, a fixed-schema summary line, and detail only for what needs attention - uncovered code. Fully covered files are counted, not listed.
 
 ## Guides
 

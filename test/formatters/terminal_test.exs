@@ -45,20 +45,59 @@ defmodule Six.Formatters.TerminalTest do
     assert output =~ "COV"
     assert output =~ "FILE"
     assert output =~ "lib/a.ex"
-    assert output =~ "lib/b.ex"
     assert output =~ "TOTAL"
     assert output =~ "75.0%"
   end
 
-  test "format sorts by coverage ascending" do
+  test "format hides fully covered files and prints a count instead" do
     output =
       capture_io(fn ->
         Terminal.format(sample_summary(), threshold: 90)
       end)
 
+    refute output =~ "lib/b.ex"
+    assert output =~ "1 file fully covered (not shown)"
+  end
+
+  test "format sorts by coverage ascending" do
+    summary = %{
+      files: [
+        %{
+          path: "lib/a.ex",
+          source: "one\ntwo\nthree\nfour",
+          coverage: [1, 1, 1, 0],
+          lines: 4,
+          relevant: 4,
+          covered: 3,
+          missed: 1,
+          percentage: 75.0
+        },
+        %{
+          path: "lib/b.ex",
+          source: "one\ntwo",
+          coverage: [1, 0],
+          lines: 2,
+          relevant: 2,
+          covered: 1,
+          missed: 1,
+          percentage: 50.0
+        }
+      ],
+      total_lines: 6,
+      total_relevant: 6,
+      total_covered: 4,
+      total_missed: 2,
+      percentage: 66.7
+    }
+
+    output =
+      capture_io(fn ->
+        Terminal.format(summary, threshold: 90)
+      end)
+
     a_pos = :binary.match(output, "lib/a.ex") |> elem(0)
     b_pos = :binary.match(output, "lib/b.ex") |> elem(0)
-    assert a_pos < b_pos
+    assert b_pos < a_pos
   end
 
   test "format with detail mode shows source lines" do
@@ -137,29 +176,29 @@ defmodule Six.Formatters.TerminalTest do
         %{
           path: "lib/short.ex",
           source: "x",
-          coverage: [1],
+          coverage: [0],
           lines: 1,
           relevant: 1,
-          covered: 1,
-          missed: 0,
-          percentage: 100.0
+          covered: 0,
+          missed: 1,
+          percentage: 0.0
         },
         %{
           path: "lib/apps/my_app/very/long/path/module.ex",
           source: "x",
-          coverage: [1],
+          coverage: [0],
           lines: 1,
           relevant: 1,
-          covered: 1,
-          missed: 0,
-          percentage: 100.0
+          covered: 0,
+          missed: 1,
+          percentage: 0.0
         }
       ],
       total_lines: 2,
       total_relevant: 2,
-      total_covered: 2,
-      total_missed: 0,
-      percentage: 100.0
+      total_covered: 0,
+      total_missed: 2,
+      percentage: 0.0
     }
 
     output =
