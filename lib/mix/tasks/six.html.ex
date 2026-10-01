@@ -3,12 +3,14 @@ defmodule Mix.Tasks.Six.Html do
   @moduledoc """
   Generates an HTML coverage report at `.six/coverage.html`.
 
-      mix six.html [options] [-- test_args]
+      mix six.html [options] [mix six options] [mix test options]
 
   ## Options
 
     * `--output-dir DIR` - Output directory (default: .six/)
     * `--open` - Open the report in the default browser after generation
+
+  All other arguments are handled as in `mix six`.
   """
 
   use Mix.Task
@@ -18,7 +20,7 @@ defmodule Mix.Tasks.Six.Html do
   @six :ignore
   @impl true
   def run(args) do
-    {opts, test_args} = split_args(args)
+    {opts, rest} = split_args(args)
 
     # Save original formatters so we can restore after the run
     original = Application.get_env(:six, :formatters)
@@ -35,7 +37,7 @@ defmodule Mix.Tasks.Six.Html do
       Application.put_env(:six, :output_dir, dir)
     end
 
-    Mix.Tasks.Six.run(test_args)
+    Mix.Tasks.Six.run(rest)
 
     # Restore original formatters to avoid polluting the application env
     case original do
@@ -51,20 +53,10 @@ defmodule Mix.Tasks.Six.Html do
   end
 
   @doc false
+  # Strips this task's own options and leaves the rest, including `--` and
+  # anything after it, for `mix six` to handle.
   def split_args(args) do
-    {args_before, args_after} =
-      case Enum.split_while(args, &(&1 != "--")) do
-        {before, ["--" | after_]} -> {before, after_}
-        {before, []} -> {before, []}
-      end
-
-    {parsed, _, _} =
-      OptionParser.parse(args_before,
-        strict: [output_dir: :string, open: :boolean],
-        aliases: [o: :output_dir]
-      )
-
-    {parsed, args_after}
+    Mix.Tasks.Six.extract_opts(args, [output_dir: :string, open: :boolean], o: :output_dir)
   end
 
   @six :ignore

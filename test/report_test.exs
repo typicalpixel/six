@@ -66,6 +66,14 @@ defmodule Six.ReportTest do
     assert opts[:output_dir] == ".six"
   end
 
+  test "run returns summary when coverage meets the minimum" do
+    Application.put_env(:six, :formatters, [StubFormatter])
+
+    %{percentage: percentage} = Six.Report.run()
+
+    assert %{percentage: _} = Six.Report.run(minimum_coverage: percentage)
+  end
+
   test "run raises when below minimum coverage" do
     Application.put_env(:six, :formatters, [StubFormatter])
 

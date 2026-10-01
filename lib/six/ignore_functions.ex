@@ -136,8 +136,6 @@ defmodule Six.Ignore.Functions do
   end
 
   @six :ignore
-  defp extract_body({:__block__, _, body}) when is_list(body), do: body
-  @six :ignore
   defp extract_body(_), do: []
 
   defp scan_ast(
