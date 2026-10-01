@@ -46,6 +46,10 @@ mix six --minimum-coverage 85
 mix six --skip generated/ --skip _pb.ex
 mix six --track-ignores
 
+# mix test options and file paths are passed straight through
+mix six --max-failures 1 --max-cases 4
+mix six test/my_app/accounts_test.exs
+
 # Source-level detail view
 mix six.detail
 mix six.detail --filter auth
@@ -202,13 +206,15 @@ mix six --track-ignores
 For CI setups that split tests across machines:
 
 ```bash
-# Each partition exports its coverage data:
-MIX_TEST_PARTITION=1 mix test --cover --export-coverage p1
-MIX_TEST_PARTITION=2 mix test --cover --export-coverage p2
+# Each partition runs its share of the tests and exports cover/<partition>.coverdata:
+MIX_TEST_PARTITION=1 mix test --partitions 2 --cover
+MIX_TEST_PARTITION=2 mix test --partitions 2 --cover
 
-# Merge and generate report:
+# Once every partition has finished, gather the files into cover/ and merge:
 mix six --import-cover cover
 ```
+
+Partition runs only write coverage data. The report, including the minimum coverage check, comes from the merge step. Use `--export-coverage NAME` to pick the file name yourself.
 
 ## Acknowledgments
 

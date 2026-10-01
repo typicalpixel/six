@@ -3,7 +3,7 @@ defmodule Mix.Tasks.Six do
   @moduledoc """
   Runs `mix test --cover` with Six as the coverage tool.
 
-      mix six [options] [-- test_args]
+      mix six [options] [mix test options]
 
   ## Options
 
@@ -18,12 +18,28 @@ defmodule Mix.Tasks.Six do
       a report without running tests. Used to merge coverage from
       partitioned CI runs.
 
-  Any arguments after `--` are passed through to `mix test`.
+  Any other arguments are passed through to `mix test`, so its options and
+  file paths work as usual:
+
+      mix six --threshold 90 --max-failures 1 --max-cases 4
+      mix six test/my_app/accounts_test.exs:42
+
+  Arguments after `--` are always passed to `mix test` untouched.
   """
 
   use Mix.Task
 
   Module.register_attribute(__MODULE__, :six, accumulate: true)
+
+  @switches [
+    threshold: :integer,
+    minimum_coverage: :float,
+    output_dir: :string,
+    skip: :keep,
+    track_ignores: :boolean,
+    import_cover: :string
+  ]
+  @aliases [t: :threshold, o: :output_dir]
 
   @six :ignore
   @impl true
@@ -100,26 +116,43 @@ defmodule Mix.Tasks.Six do
 
   @doc false
   def split_args(args) do
-    {args_before, args_after} =
-      case Enum.split_while(args, &(&1 != "--")) do
-        {before, ["--" | after_]} -> {before, after_}
-        {before, []} -> {before, []}
-      end
+    {opts, rest} = extract_opts(args, @switches, @aliases)
+    {opts, List.delete(rest, "--")}
+  end
 
-    {parsed, _, _} =
-      OptionParser.parse(args_before,
-        strict: [
-          threshold: :integer,
-          minimum_coverage: :float,
-          output_dir: :string,
-          skip: :keep,
-          track_ignores: :boolean,
-          import_cover: :string
-        ],
-        aliases: [t: :threshold, o: :output_dir]
-      )
+  @doc false
+  # Pulls the given switches out of `args`, stopping at `--`. Everything else
+  # (unknown switches and their values, test file paths, and `--` along with
+  # whatever follows it) is returned untouched and in order, so it can be
+  # handed on to `mix test`.
+  def extract_opts(args, switches, aliases) do
+    do_extract_opts(args, [strict: switches, aliases: aliases], [], [])
+  end
 
-    {parsed, args_after}
+  defp do_extract_opts(args, parser_opts, opts, rest) do
+    case OptionParser.next(args, parser_opts) do
+      {:ok, key, value, tail} ->
+        do_extract_opts(tail, parser_opts, [{key, value} | opts], rest)
+
+      {:invalid, switch, nil, _tail} ->
+        Mix.raise("Missing value for #{switch}")
+
+      {:invalid, switch, value, _tail} ->
+        Mix.raise("Invalid value for #{switch}: #{inspect(value)}")
+
+      {:undefined, _switch, _value, tail} ->
+        consumed = Enum.take(args, length(args) - length(tail))
+        do_extract_opts(tail, parser_opts, opts, Enum.reverse(consumed, rest))
+
+      {:error, ["--" | _] = tail} ->
+        {Enum.reverse(opts), Enum.reverse(rest, tail)}
+
+      {:error, [arg | tail]} ->
+        do_extract_opts(tail, parser_opts, opts, [arg | rest])
+
+      {:error, []} ->
+        {Enum.reverse(opts), Enum.reverse(rest)}
+    end
   end
 
   @doc false

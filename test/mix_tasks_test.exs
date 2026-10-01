@@ -24,6 +24,52 @@ defmodule Mix.Tasks.SixTest do
       assert test_args == ["--only", "unit"]
     end
 
+    test "passes unknown switches and their values through to mix test" do
+      {opts, test_args} =
+        Mix.Tasks.Six.split_args(["--max-failures", "1", "--threshold", "80", "--max-cases", "4"])
+
+      assert opts == [threshold: 80]
+      assert test_args == ["--max-failures", "1", "--max-cases", "4"]
+    end
+
+    test "passes through boolean switches, = values, and file paths in order" do
+      {opts, test_args} =
+        Mix.Tasks.Six.split_args([
+          "test/foo_test.exs:12",
+          "--trace",
+          "-t",
+          "75",
+          "--seed=0",
+          "--exclude",
+          "slow",
+          "--skip",
+          "gen/"
+        ])
+
+      assert opts == [threshold: 75, skip: "gen/"]
+      assert test_args == ["test/foo_test.exs:12", "--trace", "--seed=0", "--exclude", "slow"]
+    end
+
+    test "passes args after -- through untouched, even six options" do
+      {opts, test_args} =
+        Mix.Tasks.Six.split_args(["--max-failures", "1", "--", "--threshold", "80", "--"])
+
+      assert opts == []
+      assert test_args == ["--max-failures", "1", "--threshold", "80", "--"]
+    end
+
+    test "raises on an invalid value for a six option" do
+      assert_raise Mix.Error, ~s(Invalid value for --threshold: "abc"), fn ->
+        Mix.Tasks.Six.split_args(["--threshold", "abc"])
+      end
+    end
+
+    test "raises on a missing value for a six option" do
+      assert_raise Mix.Error, "Missing value for --output-dir", fn ->
+        Mix.Tasks.Six.split_args(["--max-failures", "1", "--output-dir"])
+      end
+    end
+
     test "handles no args" do
       {opts, test_args} = Mix.Tasks.Six.split_args([])
       assert opts == []
@@ -85,10 +131,19 @@ defmodule Mix.Tasks.Six.DetailTest do
     assert test_args == []
   end
 
-  test "split_args passes through args after --" do
-    {opts, test_args} = Mix.Tasks.Six.Detail.split_args(["--filter", "auth", "--", "--seed", "0"])
+  test "split_args leaves -- and the args after it for mix six" do
+    {opts, rest} = Mix.Tasks.Six.Detail.split_args(["--filter", "auth", "--", "--seed", "0"])
     assert opts[:filter] == "auth"
-    assert test_args == ["--seed", "0"]
+    assert rest == ["--", "--seed", "0"]
+  end
+
+  test "split_args leaves mix six and mix test options in place" do
+    {opts, rest} =
+      Mix.Tasks.Six.Detail.split_args(["--threshold", "80", "-f", "auth", "--max-failures", "1"])
+
+    assert opts == [filter: "auth"]
+    assert rest == ["--threshold", "80", "--max-failures", "1"]
+    assert Mix.Tasks.Six.split_args(rest) == {[threshold: 80], ["--max-failures", "1"]}
   end
 
   test "split_args handles alias" do
@@ -106,8 +161,14 @@ defmodule Mix.Tasks.Six.HtmlTest do
     assert opts[:open] == true
   end
 
-  test "split_args passes through args after --" do
-    {_, test_args} = Mix.Tasks.Six.Html.split_args(["--", "--only", "integration"])
-    assert test_args == ["--only", "integration"]
+  test "split_args leaves -- and the args after it for mix six" do
+    {_, rest} = Mix.Tasks.Six.Html.split_args(["--", "--only", "integration"])
+    assert rest == ["--", "--only", "integration"]
+  end
+
+  test "split_args leaves mix six and mix test options in place" do
+    {opts, rest} = Mix.Tasks.Six.Html.split_args(["--open", "--max-cases", "2", "-t", "70"])
+    assert opts == [open: true]
+    assert rest == ["--max-cases", "2", "-t", "70"]
   end
 end

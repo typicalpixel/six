@@ -128,6 +128,17 @@ defmodule Six.Cover do
   end
 
   @doc """
+  Exports the current cover session to a .coverdata file, creating its
+  directory if needed. Returns :ok or {:error, reason}.
+  Cannot be tested during a coverage run — reads live :cover state.
+  """
+  @six :ignore
+  def export_coverdata(path) do
+    File.mkdir_p!(Path.dirname(path))
+    :cover.export(String.to_charlist(path))
+  end
+
+  @doc """
   Imports a single .coverdata file into the current cover session.
   Returns :ok or {:error, reason}.
   Cannot be tested during a coverage run — mutates :cover state.

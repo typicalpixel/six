@@ -62,3 +62,17 @@ config :six,
 ## Partitioned test suites
 
 If your CI splits tests across partitions, export coverage from each partition and merge with `mix six --import-cover ...` in a follow-up job.
+
+Each partition job writes `cover/<partition>.coverdata` instead of a report:
+
+```bash
+MIX_TEST_PARTITION=${{ matrix.partition }} mix test --partitions 4 --cover
+```
+
+Upload `cover/` as an artifact from each partition, download them all into one `cover/` directory in the follow-up job, then run:
+
+```bash
+mix six --import-cover cover
+```
+
+The merge step produces the report and enforces `minimum_coverage`.

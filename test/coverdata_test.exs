@@ -9,6 +9,21 @@ defmodule Six.CoverdataTest do
     Path.join(@tmp_dir, "six_coverdata_test_#{System.unique_integer([:positive])}")
   end
 
+  describe "export_coverdata" do
+    test "writes a file that can be imported, creating the directory" do
+      dir = unique_dir()
+      path = Path.join([dir, "nested", "p1.coverdata"])
+
+      :cover.start()
+      assert :ok = Six.Cover.export_coverdata(path)
+      assert File.exists?(path)
+      assert :ok = Six.Cover.import_coverdata(path)
+      :cover.stop()
+
+      File.rm_rf!(dir)
+    end
+  end
+
   describe "import_coverdata" do
     test "imports a valid file" do
       dir = unique_dir()

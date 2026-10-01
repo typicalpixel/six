@@ -3,11 +3,13 @@ defmodule Mix.Tasks.Six.Detail do
   @moduledoc """
   Same as `mix six` but includes source-level annotation output.
 
-      mix six.detail [--filter PATTERN] [-- test_args]
+      mix six.detail [--filter PATTERN] [mix six options] [mix test options]
 
   ## Options
 
     * `--filter PATTERN` - Only show source detail for files matching pattern
+
+  All other arguments are handled as in `mix six`.
   """
 
   use Mix.Task
@@ -17,7 +19,7 @@ defmodule Mix.Tasks.Six.Detail do
   @six :ignore
   @impl true
   def run(args) do
-    {opts, test_args} = split_args(args)
+    {opts, rest} = split_args(args)
 
     Application.put_env(:six, :detail, true)
 
@@ -25,23 +27,13 @@ defmodule Mix.Tasks.Six.Detail do
       Application.put_env(:six, :filter, filter)
     end
 
-    Mix.Tasks.Six.run(test_args)
+    Mix.Tasks.Six.run(rest)
   end
 
   @doc false
+  # Strips this task's own options and leaves the rest, including `--` and
+  # anything after it, for `mix six` to handle.
   def split_args(args) do
-    {args_before, args_after} =
-      case Enum.split_while(args, &(&1 != "--")) do
-        {before, ["--" | after_]} -> {before, after_}
-        {before, []} -> {before, []}
-      end
-
-    {parsed, _, _} =
-      OptionParser.parse(args_before,
-        strict: [filter: :string],
-        aliases: [f: :filter]
-      )
-
-    {parsed, args_after}
+    Mix.Tasks.Six.extract_opts(args, [filter: :string], f: :filter)
   end
 end
