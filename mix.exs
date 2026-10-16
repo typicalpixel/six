@@ -41,7 +41,8 @@ defmodule Six.MixProject do
 
   defp deps do
     [
-      {:ex_doc, "~> 0.40", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.40", only: :dev, runtime: false},
+      {:igniter, "~> 0.6", optional: true, runtime: false}
     ]
   end
 
