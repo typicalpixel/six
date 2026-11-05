@@ -78,14 +78,16 @@ defmodule Mix.Tasks.Six do
 
   @six :ignore
   defp run_tests(opts, test_args) do
-    project = Mix.Project.config()
-    test_coverage = Keyword.get(project, :test_coverage, [])
-    test_coverage = Keyword.put(test_coverage, :tool, Six)
-    test_coverage = merge_cli_opts(test_coverage, opts)
+    # `mix test` builds its coverage options from the project's `:test_coverage`
+    # config, so options set here can't reach `Six.start/2` that way. Hand them
+    # over through the application env instead.
+    Application.put_env(:six, :cli_opts, merge_cli_opts([], opts))
 
-    Application.put_env(:mix, :test_coverage, test_coverage)
-
-    Mix.Task.run("test", ["--cover" | test_args])
+    try do
+      Mix.Task.run("test", ["--cover" | test_args])
+    after
+      Application.delete_env(:six, :cli_opts)
+    end
   end
 
   @six :ignore

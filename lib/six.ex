@@ -68,6 +68,13 @@ defmodule Six do
 
   @six :ignore
   defp report(opts) do
-    Six.Report.run(opts)
+    opts |> report_opts() |> Six.Report.run()
+  end
+
+  @doc false
+  # Appends options from `mix six` flags after the project's `:test_coverage`
+  # options, so the flags win.
+  def report_opts(opts) do
+    opts ++ Application.get_env(:six, :cli_opts, [])
   end
 end
