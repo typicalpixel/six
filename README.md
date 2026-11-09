@@ -33,6 +33,22 @@ defp deps do
 end
 ```
 
+### With Igniter
+
+If your project uses [Igniter](https://hexdocs.pm/igniter), it can make these
+changes for you:
+
+```bash
+mix igniter.install six
+```
+
+It also accepts the same options as `mix six` (`--threshold`, `--minimum-coverage`,
+`--output-dir`, `--skip`, `--track-ignores`) and writes them to `config/test.exs`:
+
+```bash
+mix igniter.install six --threshold 90 --minimum-coverage 85 --skip generated/ --track-ignores
+```
+
 ## Usage
 
 ```bash
